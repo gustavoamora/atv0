@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Controle do Agente</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.0.0/dist/umd/supabase.js"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4; color: #333; }
         .container { max-width: 800px; margin: 50px auto; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
@@ -17,9 +18,6 @@
         .metrics { margin: 20px 0; padding: 10px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; }
         .metrics h3 { margin-top: 0; }
         .metrics p { margin: 5px 0; }
-        .chat-list { margin-top: 30px; }
-        .chat-list ul { padding-left: 20px; }
-        .chat-list li { margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -28,13 +26,19 @@
 
         <!-- Status do Agente -->
         <div class="status">
-            Status Atual: <span id="agent-status">Carregando...</span>
+            Status Atual do Agente: <span id="agent-status">Carregando...</span>
         </div>
 
-        <!-- Botões de Controle -->
+        <!-- Botões de Controle Global -->
         <div class="buttons">
-            <button class="activate" id="activate">Ativar Agente</button>
-            <button class="deactivate" id="deactivate">Desativar Agente</button>
+            <button class="activate" id="activate-global">Ativar Agente Global</button>
+            <button class="deactivate" id="deactivate-global">Desativar Agente Global</button>
+        </div>
+
+        <!-- Lista de Conversas Ativas -->
+        <div class="conversations">
+            <h2>Conversas Ativas</h2>
+            <div id="conversations-list"></div>
         </div>
 
         <!-- Métricas -->
@@ -44,105 +48,96 @@
             <p>Interações Hoje: <span id="interactions-today">-</span></p>
             <p>Tempo Médio de Resposta: <span id="average-response-time">-</span></p>
         </div>
-
-        <!-- Conversas Ativas -->
-        <div class="chat-list">
-            <h3>Conversas Ativas</h3>
-            <ul id="chat-list"></ul>
-        </div>
     </div>
 
     <script>
-        const statusSpan = document.getElementById("agent-status");
-        const processedMessages = document.getElementById("processed-messages");
-        const interactionsToday = document.getElementById("interactions-today");
-        const averageResponseTime = document.getElementById("average-response-time");
-        const chatList = document.getElementById("chat-list");
+        // Conectar com o Supabase (substitua pela sua URL e chave)
+        const supabaseUrl = 'https://YOUR-SUPABASE-URL'; // Substitua com sua URL
+        const supabaseKey = 'YOUR-SUPABASE-KEY'; // Substitua com sua chave
+        const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-        // URLs dos Webhooks (mude para seus endpoints no n8n)
-        const statusEndpoint = "SEU_WEBHOOK_URL_DE_STATUS"; // Endpoint para buscar status
-        const controlEndpoint = "SEU_WEBHOOK_URL_DE_CONTROLE"; // Endpoint para ativar/desativar
-        const metricsEndpoint = "SEU_WEBHOOK_URL_DE_METRICAS"; // Endpoint para buscar métricas
-        const zapiChatsEndpoint = "https://api.z-api.io/instanceID/token/chats"; // Endpoint da Z-API para conversas
+        // URL da Z-API para buscar as conversas ativas
+        const zapiChatsEndpoint = 'https://api.z-api.io/instanceID/token/chats'; // Substitua com seu endpoint da Z-API
 
         // Função para buscar o status do agente
         async function fetchAgentStatus() {
-            try {
-                const response = await fetch(statusEndpoint);
-                const data = await response.json();
-                statusSpan.textContent = data.status === "ativo" ? "Ativo" : "Pausado";
-            } catch (error) {
+            const { data, error } = await supabase
+                .from('agent_status')
+                .select('status')
+                .eq('id', 1)
+                .single();
+
+            if (error) {
                 console.error("Erro ao buscar status:", error);
-                statusSpan.textContent = "Indisponível";
+                document.getElementById("agent-status").textContent = "Indisponível";
+            } else {
+                document.getElementById("agent-status").textContent = data.status === "ativo" ? "Ativo" : "Pausado";
             }
         }
 
-        // Função para atualizar o status do agente
-        async function updateAgentStatus(newStatus) {
-            try {
-                const response = await fetch(controlEndpoint, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ status: newStatus })
-                });
+        // Função para atualizar o status do agente global
+        async function updateAgentStatus(status) {
+            const { data, error } = await supabase
+                .from('agent_status')
+                .upsert([{ id: 1, status }]);  // Atualiza o status global (id=1, ou qualquer valor do seu esquema)
 
-                if (response.ok) {
-                    alert(`Agente ${newStatus === "ativo" ? "ativado" : "desativado"} com sucesso!`);
-                    fetchAgentStatus(); // Atualiza o status na página
-                } else {
-                    alert("Erro ao atualizar o status.");
-                }
-            } catch (error) {
-                console.error("Erro ao atualizar status:", error);
-                alert("Erro ao se comunicar com o servidor.");
+            if (error) {
+                alert("Erro ao atualizar o status global.");
+                console.error(error);
+            } else {
+                alert(`Agente global ${status}`);
+                fetchAgentStatus(); // Atualiza o status na página
             }
         }
 
-        // Função para buscar métricas do agente
-        async function fetchMetrics() {
-            try {
-                const response = await fetch(metricsEndpoint);
-                const data = await response.json();
-
-                // Atualizar as métricas na interface
-                processedMessages.textContent = data.processedMessages || 0;
-                interactionsToday.textContent = data.interactionsToday || 0;
-                averageResponseTime.textContent = data.averageResponseTime || "-";
-            } catch (error) {
-                console.error("Erro ao buscar métricas:", error);
-            }
-        }
-
-        // Função para buscar conversas ativas da Z-API
-        async function fetchActiveChats() {
+        // Função para buscar as conversas ativas na Z-API
+        async function fetchConversations() {
             try {
                 const response = await fetch(zapiChatsEndpoint);
-                if (!response.ok) throw new Error("Erro ao buscar conversas");
+                const data = await response.json();
 
-                const chats = await response.json();
-                console.log("Conversas Ativas:", chats);
+                const conversationsList = document.getElementById("conversations-list");
+                conversationsList.innerHTML = ''; // Limpar lista existente
 
-                // Exemplo: Renderizar as conversas na interface
-                chatList.innerHTML = ""; // Limpa a lista atual
-                chats.forEach(chat => {
-                    const chatItem = document.createElement("li");
-                    chatItem.textContent = `Contato: ${chat.name}, Última Mensagem: ${chat.lastMessage}`;
-                    chatList.appendChild(chatItem);
-                });
+                if (data && data.chats) {
+                    data.chats.forEach(chat => {
+                        const chatElement = document.createElement('div');
+                        chatElement.innerHTML = `
+                            <p>Conversa ${chat.chatId} - Status: ${chat.status}</p>
+                            <button onclick="updateChatStatus('${chat.chatId}', '${chat.status === 'active' ? 'paused' : 'active'}')">
+                                ${chat.status === 'active' ? 'Desativar' : 'Ativar'} Conversa
+                            </button>
+                        `;
+                        conversationsList.appendChild(chatElement);
+                    });
+                }
             } catch (error) {
-                console.error("Erro ao buscar conversas:", error);
-                chatList.innerHTML = "<li>Erro ao carregar as conversas.</li>";
+                console.error("Erro ao buscar conversas da Z-API:", error);
             }
         }
 
-        // Adicionando os eventos aos botões
-        document.getElementById("activate").addEventListener("click", () => updateAgentStatus("ativo"));
-        document.getElementById("deactivate").addEventListener("click", () => updateAgentStatus("pausado"));
+        // Função para atualizar o status de uma conversa específica
+        async function updateChatStatus(chatId, status) {
+            const { data, error } = await supabase
+                .from('chats')
+                .upsert([{ chat_id: chatId, status }]);
 
-        // Inicializando a página
+            if (error) {
+                alert("Erro ao atualizar o status da conversa.");
+                console.error(error);
+            } else {
+                alert(`Status da conversa ${chatId} alterado para ${status}`);
+                fetchConversations(); // Atualiza a lista de conversas
+            }
+        }
+
+        // Adicionar eventos para os botões de ativar/desativar global
+        document.getElementById("activate-global").addEventListener("click", () => updateAgentStatus("ativo"));
+        document.getElementById("deactivate-global").addEventListener("click", () => updateAgentStatus("pausado"));
+
+        // Inicializar a página
         fetchAgentStatus();
-        fetchMetrics();
-        fetchActiveChats(); // Buscar as conversas ativas
+        fetchConversations();
     </script>
 </body>
 </html>

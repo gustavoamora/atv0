@@ -52,12 +52,12 @@
 
     <script>
         // Conectar com o Supabase (substitua pela sua URL e chave)
-        const supabaseUrl = 'https://YOUR-SUPABASE-URL'; // Substitua com sua URL
-        const supabaseKey = 'YOUR-SUPABASE-KEY'; // Substitua com sua chave
+        const supabaseUrl = 'https://folpesfgpnbbvhgkdchm.supabase.co'; // Substitua com sua URL
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZvbHBlc2ZncG5iYnZoZ2tkY2htIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQyMzQwNzAsImV4cCI6MjA0OTgxMDA3MH0.QN2V_Nj_M-g6YGOlde9-U4uC2Y-Tdfd06BQ40lfenAc'; // Substitua com sua chave
         const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
         // URL da Z-API para buscar as conversas ativas
-        const zapiChatsEndpoint = 'https://api.z-api.io/instanceID/token/chats'; // Substitua com seu endpoint da Z-API
+        const zapiChatsEndpoint = 'https://api.z-api.io/instances/3D9BB4EA5A3930BCA4D506C955D91476/token/D8E8E775C93A326229FDF8BA/send-text/chats'; // Substitua com seu endpoint da Z-API
 
         // Função para buscar o status do agente
         async function fetchAgentStatus() {

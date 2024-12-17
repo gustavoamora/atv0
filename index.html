@@ -62,33 +62,37 @@
         // Função para buscar o status do agente
         async function fetchAgentStatus() {
             const { data, error } = await supabase
-                .from('agent_status')
-                .select('status')
-                .eq('id', 1)
+                .from('agent_status')  // Nome da sua tabela
+                .select('status')  // Campo status como booleano
+                .eq('id', 1)  // Condição para buscar pelo id que você configurou
                 .single();
 
             if (error) {
                 console.error("Erro ao buscar status:", error);
                 document.getElementById("agent-status").textContent = "Indisponível";
             } else {
-                document.getElementById("agent-status").textContent = data.status === "ativo" ? "Ativo" : "Pausado";
+                document.getElementById("agent-status").textContent = data.status ? "Ativo" : "Pausado";  // Verificando se é TRUE ou FALSE
             }
         }
 
+
         // Função para atualizar o status do agente global
         async function updateAgentStatus(status) {
+            const statusBoolean = status === "ativo" ? true : false;  // Convertendo para booleano TRUE ou FALSE
+            
             const { data, error } = await supabase
-                .from('agent_status')
-                .upsert([{ id: 1, status }]);  // Atualiza o status global (id=1, ou qualquer valor do seu esquema)
+                .from('agent_status')  // Nome da sua tabela
+                .upsert([{ id: 1, status: statusBoolean }]);  // Atualiza o status global (id=1 ou qualquer valor que você use no esquema)
 
             if (error) {
                 alert("Erro ao atualizar o status global.");
                 console.error(error);
             } else {
-                alert(`Agente global ${status}`);
+                alert(`Agente global ${status === "ativo" ? "ativado" : "desativado"}`);
                 fetchAgentStatus(); // Atualiza o status na página
             }
         }
+
 
         // Função para buscar as conversas ativas na Z-API
         async function fetchConversations() {
@@ -118,18 +122,21 @@
 
         // Função para atualizar o status de uma conversa específica
         async function updateChatStatus(chatId, status) {
+            const statusBoolean = status === "active" ? true : false;  // Convertendo para booleano TRUE ou FALSE
+
             const { data, error } = await supabase
-                .from('chats')
-                .upsert([{ chat_id: chatId, status }]);
+                .from('chats')  // Nome da sua tabela de conversas
+                .upsert([{ chat_id: chatId, status: statusBoolean }]);  // Atualiza o status da conversa
 
             if (error) {
                 alert("Erro ao atualizar o status da conversa.");
                 console.error(error);
             } else {
-                alert(`Status da conversa ${chatId} alterado para ${status}`);
+                alert(`Status da conversa ${chatId} alterado para ${status === "active" ? "ativo" : "inativo"}`);
                 fetchConversations(); // Atualiza a lista de conversas
             }
         }
+
 
         // Adicionar eventos para os botões de ativar/desativar global
         document.getElementById("activate-global").addEventListener("click", () => updateAgentStatus("ativo"));

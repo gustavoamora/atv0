@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Controle do Agente</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f4f4f4; color: #333; }
+        .container { max-width: 800px; margin: 50px auto; padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+        h1 { text-align: center; }
+        .status { text-align: center; margin: 20px 0; font-size: 20px; }
+        .status span { font-weight: bold; color: #007BFF; }
+        .buttons { text-align: center; margin: 20px 0; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; border: none; border-radius: 5px; }
+        button.activate { background-color: #28a745; color: #fff; }
+        button.deactivate { background-color: #dc3545; color: #fff; }
+        .metrics { margin: 20px 0; padding: 10px; border: 1px solid #ddd; border-radius: 8px; background: #f9f9f9; }
+        .metrics h3 { margin-top: 0; }
+        .metrics p { margin: 5px 0; }
+        .chat-list { margin-top: 30px; }
+        .chat-list ul { padding-left: 20px; }
+        .chat-list li { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Controle Global do Agente</h1>
+
+        <!-- Status do Agente -->
+        <div class="status">
+            Status Atual: <span id="agent-status">Carregando...</span>
+        </div>
+
+        <!-- Botões de Controle -->
+        <div class="buttons">
+            <button class="activate" id="activate">Ativar Agente</button>
+            <button class="deactivate" id="deactivate">Desativar Agente</button>
+        </div>
+
+        <!-- Métricas -->
+        <div class="metrics">
+            <h3>Estatísticas do Agente</h3>
+            <p>Mensagens Processadas: <span id="processed-messages">-</span></p>
+            <p>Interações Hoje: <span id="interactions-today">-</span></p>
+            <p>Tempo Médio de Resposta: <span id="average-response-time">-</span></p>
+        </div>
+
+        <!-- Conversas Ativas -->
+        <div class="chat-list">
+            <h3>Conversas Ativas</h3>
+            <ul id="chat-list"></ul>
+        </div>
+    </div>
+
+    <script>
+        const statusSpan = document.getElementById("agent-status");
+        const processedMessages = document.getElementById("processed-messages");
+        const interactionsToday = document.getElementById("interactions-today");
+        const averageResponseTime = document.getElementById("average-response-time");
+        const chatList = document.getElementById("chat-list");
+
+        // URLs dos Webhooks (mude para seus endpoints no n8n)
+        const statusEndpoint = "SEU_WEBHOOK_URL_DE_STATUS"; // Endpoint para buscar status
+        const controlEndpoint = "SEU_WEBHOOK_URL_DE_CONTROLE"; // Endpoint para ativar/desativar
+        const metricsEndpoint = "SEU_WEBHOOK_URL_DE_METRICAS"; // Endpoint para buscar métricas
+        const zapiChatsEndpoint = "https://api.z-api.io/instanceID/token/chats"; // Endpoint da Z-API para conversas
+
+        // Função para buscar o status do agente
+        async function fetchAgentStatus() {
+            try {
+                const response = await fetch(statusEndpoint);
+                const data = await response.json();
+                statusSpan.textContent = data.status === "ativo" ? "Ativo" : "Pausado";
+            } catch (error) {
+                console.error("Erro ao buscar status:", error);
+                statusSpan.textContent = "Indisponível";
+            }
+        }
+
+        // Função para atualizar o status do agente
+        async function updateAgentStatus(newStatus) {
+            try {
+                const response = await fetch(controlEndpoint, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: newStatus })
+                });
+
+                if (response.ok) {
+                    alert(`Agente ${newStatus === "ativo" ? "ativado" : "desativado"} com sucesso!`);
+                    fetchAgentStatus(); // Atualiza o status na página
+                } else {
+                    alert("Erro ao atualizar o status.");
+                }
+            } catch (error) {
+                console.error("Erro ao atualizar status:", error);
+                alert("Erro ao se comunicar com o servidor.");
+            }
+        }
+
+        // Função para buscar métricas do agente
+        async function fetchMetrics() {
+            try {
+                const response = await fetch(metricsEndpoint);
+                const data = await response.json();
+
+                // Atualizar as métricas na interface
+                processedMessages.textContent = data.processedMessages || 0;
+                interactionsToday.textContent = data.interactionsToday || 0;
+                averageResponseTime.textContent = data.averageResponseTime || "-";
+            } catch (error) {
+                console.error("Erro ao buscar métricas:", error);
+            }
+        }
+
+        // Função para buscar conversas ativas da Z-API
+        async function fetchActiveChats() {
+            try {
+                const response = await fetch(zapiChatsEndpoint);
+                if (!response.ok) throw new Error("Erro ao buscar conversas");
+
+                const chats = await response.json();
+                console.log("Conversas Ativas:", chats);
+
+                // Exemplo: Renderizar as conversas na interface
+                chatList.innerHTML = ""; // Limpa a lista atual
+                chats.forEach(chat => {
+                    const chatItem = document.createElement("li");
+                    chatItem.textContent = `Contato: ${chat.name}, Última Mensagem: ${chat.lastMessage}`;
+                    chatList.appendChild(chatItem);
+                });
+            } catch (error) {
+                console.error("Erro ao buscar conversas:", error);
+                chatList.innerHTML = "<li>Erro ao carregar as conversas.</li>";
+            }
+        }
+
+        // Adicionando os eventos aos botões
+        document.getElementById("activate").addEventListener("click", () => updateAgentStatus("ativo"));
+        document.getElementById("deactivate").addEventListener("click", () => updateAgentStatus("pausado"));
+
+        // Inicializando a página
+        fetchAgentStatus();
+        fetchMetrics();
+        fetchActiveChats(); // Buscar as conversas ativas
+    </script>
+</body>
+</html>
